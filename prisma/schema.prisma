@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id         String   @id @default(uuid()) @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  email      String   @unique
+  name       String
+  cpf        String   @unique
+  password   String
+  user_token String   @default("")
+
+  credit_cards  cards[]
+  User_Receipts users_receipts[]
+  Transaction   transactions[]
+}
+
+model cards {
+  id                  String   @id @default(uuid()) @db.Uuid
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  payment_due_at      DateTime
+  transactions_due_at DateTime
+  name                String
+  limit               String
+  user_id             String   @db.Uuid
+
+  user              users               @relation(fields: [user_id], references: [id])
+  card_transactions card_transactions[]
+}
+
+model users_receipts {
+  id         String   @id @default(uuid()) @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  name       String
+  value      String
+  user_id    String   @db.Uuid
+
+  user users @relation(fields: [user_id], references: [id])
+}
+
+model transactions {
+  id         String   @id @default(uuid()) @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  expires_at DateTime
+  name       String
+  value      String
+  paid       Boolean
+  user_id    String   @db.Uuid
+
+  user users @relation(fields: [user_id], references: [id])
+}
+
+model card_transactions {
+  id         String                @id @default(uuid()) @db.Uuid
+  created_at DateTime              @default(now())
+  updated_at DateTime              @updatedAt
+  expires_at DateTime
+  name       String
+  value      String
+  type       CARD_TRANSACTION_TYPE
+  card_id    String                @db.Uuid
+
+  card cards @relation(fields: [card_id], references: [id])
+}
+
+enum CARD_TRANSACTION_TYPE {
+  DEBIT
+  CREDIT
+}
