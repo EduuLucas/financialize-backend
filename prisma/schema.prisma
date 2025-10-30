@@ -1,85 +1,101 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
-model users {
-  id         String   @id @default(uuid()) @db.Uuid
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  email      String   @unique
+model User {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
   name       String
-  cpf        String   @unique
+  email      String     @unique
   password   String
-  user_token String   @default("")
-
-  credit_cards  cards[]
-  User_Receipts users_receipts[]
-  Transaction   transactions[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  accounts   Account[]
+  categories Category[]
 }
 
-model cards {
-  id                  String   @id @default(uuid()) @db.Uuid
-  created_at          DateTime @default(now())
-  updated_at          DateTime @updatedAt
-  payment_due_at      DateTime
-  transactions_due_at DateTime
-  name                String
-  limit               String
-  user_id             String   @db.Uuid
-
-  user              users               @relation(fields: [user_id], references: [id])
-  card_transactions card_transactions[]
+model Account {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String        @db.ObjectId
+  name         String
+  type         AccountType // 'bank' | 'wallet' | 'credit_card'
+  balance      Float         @default(0)
+  creditCard   CreditCard?
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
 }
 
-model users_receipts {
-  id         String   @id @default(uuid()) @db.Uuid
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  name       String
-  value      String
-  user_id    String   @db.Uuid
-
-  user users @relation(fields: [user_id], references: [id])
+model CreditCard {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  accountId  String    @unique @db.ObjectId
+  limit      Float
+  closingDay Int // dia de fechamento da fatura
+  dueDay     Int // dia de vencimento
+  account    Account   @relation(fields: [accountId], references: [id])
+  invoices   Invoice[]
 }
 
-model transactions {
-  id         String   @id @default(uuid()) @db.Uuid
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  expires_at DateTime
-  name       String
-  value      String
-  paid       Boolean
-  user_id    String   @db.Uuid
-
-  user users @relation(fields: [user_id], references: [id])
+model Invoice {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  creditCardId String        @db.ObjectId
+  month        Int
+  year         Int
+  totalAmount  Float         @default(0)
+  paidAmount   Float         @default(0)
+  paid         Boolean       @default(false)
+  transactions Transaction[]
+  creditCard   CreditCard    @relation(fields: [creditCardId], references: [id])
 }
 
-model card_transactions {
-  id         String                @id @default(uuid()) @db.Uuid
-  created_at DateTime              @default(now())
-  updated_at DateTime              @updatedAt
-  expires_at DateTime
-  name       String
-  value      String
-  type       CARD_TRANSACTION_TYPE
-  card_id    String                @db.Uuid
+model Transaction {
+  id                 String            @id @default(auto()) @map("_id") @db.ObjectId
+  accountId          String            @db.ObjectId
+  categoryId         String?           @db.ObjectId
+  invoiceId          String?           @db.ObjectId
+  type               TransactionType // 'income' | 'expense' | 'credit_purchase' | 'payment'
+  description        String
+  amount             Float
+  date               DateTime
+  totalInstallments  Int? // total de parcelas (se for compra parcelada)
+  currentInstallment Int? // número da parcela atual
+  recurring          Boolean           @default(false)
+  recurringId        String? // id que agrupa compras recorrentes
+  status             TransactionStatus @default(active)
 
-  card cards @relation(fields: [card_id], references: [id])
+  account  Account   @relation(fields: [accountId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
+  invoice  Invoice?  @relation(fields: [invoiceId], references: [id])
 }
 
-enum CARD_TRANSACTION_TYPE {
-  DEBIT
-  CREDIT
+model Category {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String          @db.ObjectId
+  name         String
+  type         TransactionType
+  color        String?
+  user         User            @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+}
+
+enum TransactionType {
+  income
+  expense
+  credit_purchase
+  payment
+}
+
+enum TransactionStatus {
+  active
+  canceled
+  refunded
+}
+
+enum AccountType {
+  bank
+  wallet
+  credit_card
 }
