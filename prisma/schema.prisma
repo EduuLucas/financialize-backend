@@ -3,24 +3,26 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id         String     @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  email      String     @unique
-  password   String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  accounts   Account[]
-  categories Category[]
+  id           String     @id @default(uuid()) @map("_id")
+  name         String
+  email        String     @unique
+  cpf          String     @unique
+  password     String
+  access_token String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  accounts     Account[]
+  categories   Category[]
 }
 
 model Account {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String        @db.ObjectId
+  id           String        @id @default(uuid()) @map("_id")
+  userId       String       
   name         String
   type         AccountType // 'bank' | 'wallet' | 'credit_card'
   balance      Float         @default(0)
@@ -30,8 +32,8 @@ model Account {
 }
 
 model CreditCard {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  accountId  String    @unique @db.ObjectId
+  id         String    @id @default(uuid()) @map("_id")
+  accountId  String    @unique
   limit      Float
   closingDay Int // dia de fechamento da fatura
   dueDay     Int // dia de vencimento
@@ -40,8 +42,8 @@ model CreditCard {
 }
 
 model Invoice {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  creditCardId String        @db.ObjectId
+  id           String        @id @default(uuid()) @map("_id")
+  creditCardId String       
   month        Int
   year         Int
   totalAmount  Float         @default(0)
@@ -52,10 +54,10 @@ model Invoice {
 }
 
 model Transaction {
-  id                 String            @id @default(auto()) @map("_id") @db.ObjectId
-  accountId          String            @db.ObjectId
-  categoryId         String?           @db.ObjectId
-  invoiceId          String?           @db.ObjectId
+  id                 String            @id @default(uuid()) @map("_id")
+  accountId          String           
+  categoryId         String?          
+  invoiceId          String?          
   type               TransactionType // 'income' | 'expense' | 'credit_purchase' | 'payment'
   description        String
   amount             Float
@@ -72,8 +74,8 @@ model Transaction {
 }
 
 model Category {
-  id           String          @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String          @db.ObjectId
+  id           String          @id @default(uuid()) @map("_id")
+  userId       String         
   name         String
   type         TransactionType
   color        String?

@@ -1,6 +1,5 @@
 import { IUsersRepository } from "../IUsersRepository";
 import { Response } from "../../utils/DTOs/implementations/Response";
-import { User } from "../../models/user";
 import bcrypt from "bcrypt";
 import signJWT from "../../utils/auth/SignJWT";
 import prisma from "../../database/database";
@@ -10,11 +9,18 @@ import { IDelUserRequest } from "../../useCases/delUser/delUserDTO";
 import { ILoginUserRequest } from "../../useCases/loginUser/loginUserDTO";
 import { WrongCPFOrPasswordError } from "../../models/errors/WrongCPFOrPasswordError";
 import { IPutUserRequest } from "../../useCases/putUser/putUserDTO";
+import { User } from "../../models/entities/User";
 
 export class PostgreSQLUsersRepository implements IUsersRepository {
     async get(data: IGetUserRequest): Promise<Response> {
-        const results = await prisma.users.findMany({
-            where: data,
+        const results = await prisma.user.findMany({
+            where: {
+                OR:[
+                    { cpf: data.cpf },
+                    { email: data.email },
+                    { id: data.id },
+                ]
+            },
             select: {
                 name: true,
                 cpf: true,
@@ -25,20 +31,30 @@ export class PostgreSQLUsersRepository implements IUsersRepository {
         return new Response(results, false, "");
     }
     async post(data: IPostUserRequest): Promise<Response> {
-        console.log(data);
-        const finalUser = new User(data);
-        const results = await prisma.users.create({
-            data: finalUser,
-        });
-        return new Response(results, false, "");
+        try {
+            const finalUser = User.create(data);
+            // Map domain User to Prisma create input to avoid type mismatch (exclude nested relations)
+            const prismaUser = {
+                name: finalUser.name,
+                cpf: finalUser.cpf,
+                email: finalUser.email,
+                password: finalUser.password,
+            };
+            const results = await prisma.user.create({
+                data: prismaUser,
+            });
+            return new Response(results, false, "");
+        } catch (error) {
+            console.log(error)
+            return new Response(error, true, "Error creating user");
+        }
     }
     async put(data: IPutUserRequest): Promise<Response> {
-        const results = await prisma.users.update({
+        const results = await prisma.user.update({
             where: {
                 id: data.id,
             },
             data: {
-                cpf: data.cpf,
                 email: data.email,
                 name: data.name,
             },
@@ -46,7 +62,7 @@ export class PostgreSQLUsersRepository implements IUsersRepository {
         return new Response(results, false, "");
     }
     async del(data: IDelUserRequest): Promise<Response> {
-        const results = await prisma.users.delete({
+        const results = await prisma.user.delete({
             where: {
                 id: data.id,
                 cpf: data.cpf,
@@ -56,7 +72,7 @@ export class PostgreSQLUsersRepository implements IUsersRepository {
     }
     async login(data: ILoginUserRequest): Promise<Response> {
         try {
-            const user = await prisma.users
+            const user = await prisma.user
                 .findFirstOrThrow({
                     where: {
                         cpf: data.cpf,
@@ -67,7 +83,7 @@ export class PostgreSQLUsersRepository implements IUsersRepository {
                 });
             const match = bcrypt.compareSync(data.password, user.password);
             if (match) {
-                user.user_token = signJWT(user.id);
+                user.access_token = signJWT(user.id);
                 this.put(user);
                 user.password = "";
                 return new Response({ user }, false, "");
